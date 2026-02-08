@@ -1,0 +1,11 @@
+# producer/Dockerfile
+FROM python:3.9
+
+WORKDIR /app
+
+# Install dependencies during build (has internet access)
+RUN pip install kafka-python==2.0.2
+
+COPY producer.py .
+
+CMD ["python", "producer.py"]

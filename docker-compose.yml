@@ -1,0 +1,170 @@
+
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CREATE_TOPICS: "flights:1:1,alerts:1:1"
+    depends_on:
+      - zookeeper
+    networks:
+      - app-network
+
+  producer:
+    image: flight-producer:latest
+    container_name: producer
+    hostname: producer
+    depends_on:
+      - kafka
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  flink-jobmanager:
+    image: flink:1.18.1
+    container_name: flink-jobmanager
+    hostname: flink-jobmanager
+    ports:
+      - "8081:8081"
+      - "6123:6123"
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+    volumes:
+      - ./files:/opt/flink/usrlib
+    command: >
+      bash -c "
+      /opt/flink/bin/jobmanager.sh start &&
+      sleep 15 &&
+      /opt/flink/bin/flink run -d
+      -m flink-jobmanager:8081
+      /opt/flink/usrlib/flight-alert-processor-1.0-SNAPSHOT.jar &&
+      tail -f /dev/null
+      "
+    networks:
+      - app-network
+
+  flink-taskmanager:
+    image: flink:1.18.1
+    container_name: flink-taskmanager
+    hostname: flink-taskmanager
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+    command: taskmanager
+    depends_on:
+      - flink-jobmanager
+    networks:
+      - app-network
+
+  elastic:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+    container_name: elastic
+    hostname: elastic
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-connect:
+    build:
+      context: ./kafka-connect
+    image: my-kafka-connect-es
+    container_name: kafka-connect
+    hostname: kafka-connect
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_PORT: 8083
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_GROUP_ID: connect-cluster
+
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+    depends_on:
+      - kafka
+    networks:
+      - app-network
+
+
+  kafka-connect-init:
+    image: curlimages/curl:8.5.0
+    container_name: kafka-connect-init
+    depends_on:
+      - kafka-connect
+    volumes:
+      - ./files:/files
+    command: >
+      sh -c "
+      echo 'Waiting for Kafka Connect...';
+      until curl -s http://kafka-connect:8083/connectors >/dev/null; do
+        sleep 5;
+      done;
+      echo 'Kafka Connect is up. Creating ES Sink connector...';
+      curl -X POST -H 'Content-Type: application/json'
+      --data @/files/es-sink.json
+      http://kafka-connect:8083/connectors;
+      echo 'Connector creation request sent.'
+      "
+    networks:
+      - app-network
+    restart: "no"
+
+  backend:
+    build: ./backend
+    container_name: alerts-backend
+    expose:
+      - "8080"
+    networks:
+      - app-network
+
+  frontend:
+    build: ./frontend
+    container_name: alerts-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true

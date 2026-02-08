@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flight Alerts Dashboard</title>
+  <style>
+    body {
+      background: #0b1220;
+      font-family: Arial, sans-serif;
+      color: white;
+      padding: 20px;
+      margin: 0;
+    }
+    
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #4fc3f7;
+    }
+    
+    .container {
+      display: flex;
+      flex-wrap: wrap; /* This allows cards to wrap to new lines */
+      gap: 20px;
+      justify-content: flex-start; /* Align cards to start */
+    }
+    
+    .card {
+      width: 260px;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      flex-shrink: 0; /* Prevent cards from shrinking */
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.9);
+    }
+    
+    .normal { 
+      background: linear-gradient(145deg, #1f7a1f, #2ecc71);
+      border-left: 5px solid #27ae60;
+    }
+    
+    .high { 
+      background: linear-gradient(145deg, #c0392b, #e74c3c);
+      border-left: 5px solid #d35400;
+    }
+    
+    .low { 
+      background: linear-gradient(145deg, #f39c12, #f1c40f);
+      border-left: 5px solid #d68910;
+      color: #333;
+    }
+    
+    .low p, .low h2, .low small {
+      color: #333;
+    }
+    
+    h2 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      font-size: 1.5em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding-bottom: 10px;
+    }
+    
+    p {
+      margin: 8px 0;
+      line-height: 1.4;
+    }
+    
+    small {
+      display: block;
+      margin-top: 15px;
+      font-size: 0.8em;
+      opacity: 0.8;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .normal .status-indicator { background: #2ecc71; }
+    .high .status-indicator { background: #e74c3c; }
+    .low .status-indicator { background: #f1c40f; }
+    
+    .alert-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.8em;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    
+    .normal .alert-badge { background: rgba(255, 255, 255, 0.2); }
+    .high .alert-badge { background: rgba(255, 255, 255, 0.3); }
+    .low .alert-badge { background: rgba(0, 0, 0, 0.2); }
+    
+    .counter {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px 15px;
+      border-radius: 8px;
+      font-size: 0.9em;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body>
+
+<h1> Live Flight Alerts Dashboard</h1>
+<div class="counter" id="counter">Loading...</div>
+<div class="container" id="cards"></div>
+
+<script>
+async function loadAlerts() {
+  try {
+    const res = await fetch("/alerts");
+    const data = await res.json();
+    
+    const container = document.getElementById("cards");
+    const counter = document.getElementById("counter");
+    
+    // Clear previous cards
+    container.innerHTML = "";
+    
+    // If no data, show message
+    if (data.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; width: 100%; padding: 40px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+          <h3>No flight alerts at the moment</h3>
+          <p>All flights are operating normally</p>
+        </div>
+      `;
+      counter.textContent = "0 flights";
+      return;
+    }
+    
+    // Count alerts by type
+    let normalCount = 0;
+    let highCount = 0;
+    let lowCount = 0;
+    
+    // Create and append all cards
+    data.forEach(f => {
+      let cls = "normal";
+      let alertText = "Normal";
+      
+      if (f.alert_type && f.alert_type.includes("High")) {
+        cls = "high";
+        alertText = "High Altitude Alert";
+        highCount++;
+      } else if (f.alert_type && f.alert_type.includes("Low")) {
+        cls = "low";
+        alertText = "Low Altitude Alert";
+        lowCount++;
+      } else {
+        normalCount++;
+      }
+      
+      const div = document.createElement("div");
+      div.className = `card ${cls}`;
+      div.innerHTML = `
+        <h2>
+          <span class="status-indicator"></span>
+          ${f.flight_id}
+          <span class="alert-badge">${alertText}</span>
+        </h2>
+        <p><b>Altitude:</b> ${f.altitude_ft.toLocaleString()} ft</p>
+        <p><b>Location:</b> ${f.lat.toFixed(4)}, ${f.lon.toFixed(4)}</p>
+        <small>Updated: ${new Date(f.timestamp).toLocaleTimeString()}</small>
+      `;
+      container.appendChild(div);
+    });
+    
+    // Update counter
+    counter.innerHTML = `
+      Total: ${data.length} flights<br>
+      <span style="color: #2ecc71">Normal: ${normalCount}</span><br>
+      <span style="color: #e74c3c">High: ${highCount}</span><br>
+      <span style="color: #f1c40f">Low: ${lowCount}</span>
+    `;
+    
+    // Update title with alert count
+    const alertCount = highCount + lowCount;
+    document.title = `Flight Alerts (${alertCount} active) - Dashboard`;
+    
+  } catch (error) {
+    console.error("Error loading alerts:", error);
+    const container = document.getElementById("cards");
+    container.innerHTML = `
+      <div style="text-align: center; width: 100%; padding: 40px; background: rgba(231, 76, 60, 0.2); border-radius: 10px; border: 1px solid #e74c3c;">
+        <h3>Error Loading Data</h3>
+        <p>Unable to connect to the server. Please try again later.</p>
+      </div>
+    `;
+  }
+}
+
+// Initial load
+loadAlerts();
+
+// Refresh every 2 seconds
+setInterval(loadAlerts, 2000);
+
+// Add auto-refresh indicator in console
+setInterval(() => {
+  const now = new Date().toLocaleTimeString();
+  console.log(`Last updated: ${now}`);
+}, 2000);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flight Alerts Dashboard</title>
+  <style>
+    body {
+      background: #0b1220;
+      font-family: Arial;
+      color: white;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+    }
+    .card {
+      width: 260px;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.6);
+    }
+    .normal { background: #1f7a1f; }
+    .high { background: #c0392b; }
+    .low { background: #f39c12; }
+
+    h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+
+<h1> Live Flight Alerts</h1>
+<div class="container" id="cards"></div>
+
+<script>
+async function loadAlerts() {
+  const res = await fetch("/alerts");
+  const data = await res.json();
+
+  const container = document.getElementById("cards");
+  container.innerHTML = "";
+
+  data.forEach(f => {
+    let cls = "normal";
+    if (f.alert_type.includes("High")) cls = "high";
+    if (f.alert_type.includes("Low")) cls = "low";
+
+    const div = document.createElement("div");
+    div.className = `card ${cls}`;
+    div.innerHTML = `
+      <h2>${f.flight_id}</h2>
+      <p><b>Altitude:</b> ${f.altitude_ft} ft</p>
+      <p><b>Lat:</b> ${f.lat.toFixed(4)}</p>
+      <p><b>Lon:</b> ${f.lon.toFixed(4)}</p>
+      <p><b>Status:</b> ${f.alert_type || "Normal"}</p>
+      <small>${f.timestamp}</small>
+    `;
+    container.appendChild(div);
+  });
+}
+
+loadAlerts();
+setInterval(loadAlerts, 2000);
+</script>
+
+</body>
+</html>
+

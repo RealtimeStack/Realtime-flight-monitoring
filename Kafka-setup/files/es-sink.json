@@ -1,0 +1,21 @@
+{
+  "name": "flight-alerts-es-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+    "tasks.max": "1",
+    "topics": "alerts",
+    "key.ignore": "true",
+    "connection.url": "http://elastic:9200",
+    "type.name": "_doc",
+    "batch.size": "1000",
+    "flush.timeout.ms": "10000",
+    "behavior.on.null.values": "ignore",
+    "schema.ignore": "true",
+    "auto.create": "true",
+    "index": "flight-alerts",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false"
+  }
+}

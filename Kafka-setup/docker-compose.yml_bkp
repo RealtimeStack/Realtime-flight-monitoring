@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CREATE_TOPICS: "flights:1:1,alerts:1:1"
+    depends_on:
+      - zookeeper
+    networks:
+      - app-network
+
+  producer:
+    image: flight-producer:latest
+    container_name: flight-producer
+    hostname: producer
+    depends_on:
+      - kafka
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  flink-jobmanager:
+    image: flink:1.18.1
+    container_name: flink-jobmanager
+    hostname: flink-jobmanager
+    ports:
+      - "8081:8081"
+      - "6123:6123"
+    command: jobmanager
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+    networks:
+      - app-network
+
+  flink-taskmanager:
+    image: flink:1.18.1
+    container_name: flink-taskmanager
+    hostname: flink-taskmanager
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+    command: taskmanager
+    depends_on:
+      - flink-jobmanager
+    networks:
+      - app-network
+
+  flink-job-submitter:
+    image: flink:1.18.1
+    depends_on:
+      - flink-jobmanager
+    volumes:
+      - ./files:/opt/flink/usrlib
+    command: >
+      bash -c "
+      sleep 15 &&
+      /opt/flink/bin/flink run -d
+      -m flink-jobmanager:8081
+      /opt/flink/usrlib/flight-alert-processor-1.0-SNAPSHOT.jar
+      "
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true
