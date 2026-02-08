@@ -1,7 +1,6 @@
 ✈️ Real-Time Flight Monitoring System
 
-Kafka · Flink · Kafka Connect · Elasticsearch
-This project demonstrates an end-to-end real-time streaming architecture using Apache Kafka, Apache Flink, Kafka Connect, and Elasticsearch.
+Kafka · Flink · Kafka Connect · ElasticsearchThis project demonstrates an end-to-end real-time streaming architecture using Apache Kafka, Apache Flink, Kafka Connect, and Elasticsearch.
 
 🏗️ System Architecture
 The application consists of six core components, each with a single responsibility.
@@ -26,10 +25,10 @@ Frontend
 🚀 How to Run (High Level)
 Detailed step-by-step commands available in Youtube videos. @realtimestack
 
-Start Kafka & Zookeeper
-Create Kafka topics (flights, alerts)
-Run the Producer
-Start Flink job
-Configure Kafka Connect Elasticsearch Sink
-Start Backend service
-Open Frontend
+1. Start Kafka & Zookeeper
+2. Create Kafka topics (flights, alerts)
+3. Run the Producer
+4. Start Flink job
+5. Configure Kafka Connect Elasticsearch Sink
+6. Start Backend service
+7. Open Frontend
