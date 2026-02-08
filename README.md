@@ -6,23 +6,21 @@ This project demonstrates an end-to-end real-time streaming architecture using A
 🏗️ System Architecture
 The application consists of six core components, each with a single responsibility.
 
-flowchart LR
-    P[Producer<br/>Flight Events]
-    K1[Kafka<br/>Flights Topic]
-    F[Apache Flink<br/>Real-Time Processing]
-    K2[Kafka<br/>Alerts Topic]
-    KC[Kafka Connect<br/>Elasticsearch Sink]
-    ES[Elasticsearch<br/>Alerts Index]
-    B[Backend Service<br/>REST API]
-    FE[Frontend<br/>Dashboard]
-
-    P --> K1
-    K1 --> F
-    F --> K2
-    K2 --> KC
-    KC --> ES
-    ES --> B
-    B --> FE
+Producer
+   ↓
+Kafka (Flights Topic)
+   ↓
+Apache Flink (Real-Time Processing)
+   ↓
+Kafka (Alerts Topic)
+   ↓
+Kafka Connect
+   ↓
+Elasticsearch
+   ↓
+Backend Service
+   ↓
+Frontend
 
 
 🚀 How to Run (High Level)
